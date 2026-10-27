@@ -240,8 +240,15 @@ class SyncBuddy:
 
     def fetch(self):
         r = self._git("fetch", "origin", "main", timeout=180)
-        if r.returncode != 0:
-            raise RuntimeError(f"fetch 失败：{(r.stderr or r.stdout).strip()[:200]}")
+        if r.returncode == 0:
+            return
+        msg = (r.stderr or r.stdout).strip()
+        # 刚建的远程仓库一个 commit 都没有，没有 main 分支可 fetch。
+        # 这不是故障，首次推送会把远端建起来。
+        if "couldn't find remote ref" in msg or "no such remote" in msg.lower():
+            log("  · 远程还没有 main 分支（首次推送会建）")
+            return
+        raise RuntimeError(f"fetch 失败：{msg[:200]}")
 
     def git_state(self):
         """
@@ -335,7 +342,9 @@ class SyncBuddy:
         return True
 
     def push(self):
-        r = self._git("push", timeout=300)
+        # -u 是幂等的：第一次顺便设好 upstream，之后正常推。
+        # 只写裸 `push` 的话，新建仓库会报 "no upstream branch" 推不上去。
+        r = self._git("push", "-u", "origin", "main", timeout=300)
         return r.returncode == 0, (r.stderr or r.stdout).strip()
 
     def merge_remote(self):
@@ -487,6 +496,13 @@ class SyncBuddy:
                             return rep
                 if not auto_pull:
                     rep["skipped"] = "未启用自动拉取"
+                    return rep
+
+                # 远端一个 commit 都没有，没得拉。直接跳过，
+                # 否则 merge origin/main 会报一串看不懂的错
+                if st["state"] == "no_upstream":
+                    step("pull", "skip", "远程还没有数据")
+                    rep["skipped"] = "远程为空"
                     return rep
 
                 step("pull", "active", f"拉取 {len(items) if items else 0} 个会话")

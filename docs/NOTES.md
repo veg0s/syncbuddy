@@ -275,3 +275,16 @@ windowed 的 stdout、刚 init 的空仓库、没配的 optional 字段。
 
 所以验证不能只在开发机上跑一遍源码。至少要做一次"干净环境"的端到端：
 解压到空目录、按文档从头配一遍、看着日志走完全程。
+
+### 裸 git push 推不上去
+
+**现象**：日志里 `⚠ 上传失败，已标记待补传：fatal: The current branch main has no upstream branch.`
+
+**原因**：`push()` 里写的是裸 `git push`。刚 `git init` 的仓库没有上游，
+git 不知道往哪推。本机既有仓库早就设过 upstream，所以一直没暴露。
+
+**解法**：`git push -u origin main`。`-u` 幂等，第一次顺便把 upstream 设好。
+
+同时把 `fetch` 也改了：远程仓库一个 commit 都没有时 `fetch origin main` 会报
+`couldn't find remote ref main`，这在首次使用是正常状态，不该当故障。
+`git_state` 返回 `no_upstream` 时拉取直接跳过，别去 merge 一个不存在的远程分支。
