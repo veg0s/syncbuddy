@@ -1,0 +1,28 @@
+# 运行态：每次运行都会变，且含真实会话标题，不要提交
+state.json
+logs/
+.syncbuddy.lock
+
+# 本地配置（模板是 config.example.json）
+config.json
+config.local.json
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 开发时临时生成的预览图（只排除根目录的，docs/ 里的是 README 要用的）
+/panel_*.png
+/splash_*.png
+/wizard_*.png
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 系统
+Thumbs.db
+desktop.ini
+.DS_Store

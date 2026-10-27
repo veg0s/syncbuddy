@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "这是配置模板，不含任何真实路径。",
+    "首次使用：启动 SyncBuddy 会弹出配置向导，自动生成本机的 config.json。",
+    "hosts 段是多机路径映射表，每台机器写自己的一段；导入时据此重写绝对路径。",
+    "新增机器时复制一整段改路径即可，主机名用 hostname 命令的输出。"
+  ],
+  "version": 1,
+  "age_public_key": "",
+  "exclude_background_automation": true,
+  "sync_all_sessions": true,
+  "proxy": {
+    "enabled": false,
+    "url": "http://127.0.0.1:7890"
+  },
+  "hosts": {
+    "你的主机名": {
+      "exe": "",
+      "workspace_root": "",
+      "workbuddy_home": "",
+      "personal_dir": "",
+      "uid_dir": "",
+      "storage_dir": "",
+      "age_key_file": "",
+      "ssh_key_file": "",
+      "age_binary": "age",
+      "python": ""
+    }
+  },
+  "auto_sync": {
+    "sessions": true,
+    "identity": true,
+    "skills": true,
+    "config": true
+  }
+}
