@@ -390,7 +390,7 @@ class SyncBuddyApp:
         try:
             items, _stat = self.sb.incoming()
         except Exception as ex:
-            log(f"  远程预览失败：{ex}")
+            print(f"  远程预览失败：{ex}")
             items = []
         down = {
             "total": len(items),
@@ -411,7 +411,7 @@ class SyncBuddyApp:
             # 扫描失败必须让用户看见。之前这里直接跳过，缓存永远是空，
             # 界面就无限停在「正在扫描…」，看起来像卡死
             self._plan_error = str(res["error"])
-            log(f"⚠ 预扫描失败：{self._plan_error}")
+            print(f"⚠ 预扫描失败：{self._plan_error}")
             self._plan_cache = {
                 "upload": {"total": 0, "categories": {}, "error": self._plan_error},
                 "download": {"total": 0, "categories": {}},

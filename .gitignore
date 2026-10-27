@@ -30,3 +30,6 @@ desktop.ini
 # 打包产物
 /build*/
 /dist*/
+
+# 手动打包的产物，不进仓库
+*.zip
