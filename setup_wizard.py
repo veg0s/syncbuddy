@@ -568,8 +568,11 @@ class SetupWizard(QDialog):
                 "python": self.detect.get("python", ""),
             }
             cfg["hosts"] = hosts
-            cfg["proxy"] = {"enabled": self.cb_proxy.isChecked(),
-                            "url": self.ed_proxy.text().strip()}
+            p_url, p_note = paths.normalize_proxy(self.ed_proxy.text())
+            if p_note:
+                self.proxy_out.setText("✔ " + p_note)
+                self.ed_proxy.setText(p_url)
+            cfg["proxy"] = {"enabled": self.cb_proxy.isChecked(), "url": p_url}
             cfg["auto_sync"] = {k: cb.isChecked() for k, cb in self.type_checks.items()}
             cfg.setdefault("version", 1)
             # 即使这次没填密钥，字段也要存在 —— 空的 config.json 结构不完整，

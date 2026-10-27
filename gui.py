@@ -530,8 +530,12 @@ class SettingsDialog(QDialog):
 
     def result_config(self):
         cfg = dict(self.cfg)
-        cfg["proxy"] = {"enabled": self.px_on.isChecked(),
-                        "url": self.px_url.text().strip()}
+        p_url, p_note = paths.normalize_proxy(self.px_url.text())
+        if p_note:
+            # 本地代理填成 https:// 会握手失败，这里纠正并把提示留在界面上
+            self.px_url.setText(p_url)
+            self.test_out.setText("✔ " + p_note)
+        cfg["proxy"] = {"enabled": self.px_on.isChecked(), "url": p_url}
         cfg["auto_sync"] = {k: cb.isChecked() for k, cb in self.cat_checks.items()}
         return cfg, self.remote.text().strip()
 

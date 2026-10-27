@@ -103,3 +103,35 @@ def remote_label(url: str) -> str:
     if h:
         return h
     return (url or "").strip()[:32] or "远程仓库"
+
+
+_LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1", "0.0.0.0")
+
+
+def normalize_proxy(url: str):
+    """
+    规范化代理地址，返回 (地址, 提示文字或空串)。
+
+    Clash / v2rayN 这类本地代理监听的是 **HTTP 代理**端口（走 CONNECT 隧道
+    转发 HTTPS 流量），不是 HTTPS 代理。填成 `https://127.0.0.1:7890`
+    会让客户端用 TLS 去连代理本身，握手直接失败 —— git 会报
+    "Proxy CONNECT aborted"、urllib 报 SSL 错误，看着像网络不通。
+
+    这里只对本地/私网地址做纠正，外网的 HTTPS 代理是合法配置，不动。
+    """
+    u = (url or "").strip().rstrip("/")
+    if not u.startswith("https://"):
+        return u, ""
+
+    host = u[8:].split("/")[0].split(":")[0].lower()
+    is_local = (host in _LOCAL_HOSTS
+                or host.startswith("192.168.")
+                or host.startswith("10.")
+                or host.startswith("172.16.") or host.startswith("172.17.")
+                or host.startswith("172.18.") or host.startswith("172.19.")
+                or host.startswith("172.2") or host.startswith("172.3"))
+    if not is_local:
+        return u, ""
+
+    return ("http://" + u[8:],
+            "本地代理是 HTTP 代理，不是 HTTPS —— 地址已自动改成 http://")
