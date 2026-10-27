@@ -572,6 +572,9 @@ class SetupWizard(QDialog):
                             "url": self.ed_proxy.text().strip()}
             cfg["auto_sync"] = {k: cb.isChecked() for k, cb in self.type_checks.items()}
             cfg.setdefault("version", 1)
+            # 即使这次没填密钥，字段也要存在 —— 空的 config.json 结构不完整，
+            # 后续读 cfg["age_public_key"] 的地方容易踩空
+            cfg.setdefault("age_public_key", "")
             cfg.setdefault("exclude_background_automation", True)
             cfg.setdefault("sync_all_sessions", True)
 
