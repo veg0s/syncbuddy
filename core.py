@@ -440,14 +440,18 @@ class SyncBuddy:
             except Exception as ex:
                 log(f"  补传失败（不影响启动）：{ex}")
 
+        # fetch 挂了不代表 push 一定不行（可能只是这次超时）。
+        # 记下失败，但仍然尝试把本机改动推上去，否则网络抖一下
+        # 就永久卡住，用户看到的就是"连不上 GitHub，什么都没同步"。
+        fetch_ok = True
         try:
             self.fetch()
             step("check", "done")
         except Exception as ex:
+            fetch_ok = False
             rep["error"] = str(ex)
-            step("check", "error")
-            log(f"⚠ 无法连接远程，跳过拉取：{ex}")
-            return rep
+            step("check", "skip", "远程暂时连不上")
+            log(f"⚠ 无法连接远程：{ex}")
 
         st = self.git_state()
         log(f"仓库状态：{st['state']}（领先 {st['ahead']}，落后 {st['behind']}）")
@@ -482,8 +486,8 @@ class SyncBuddy:
             except Exception as ex:
                 log(f"  上传失败（继续尝试拉取）：{ex}")
 
-        # 拉取
-        if st["state"] in ("remote_ahead", "diverged") or st["behind"] > 0:
+        # 拉取（本次 fetch 没成功就跳过，别拿过期的 origin/main 去 merge）
+        if fetch_ok and (st["state"] in ("remote_ahead", "diverged") or st["behind"] > 0):
             try:
                 items, stat = self.incoming()
                 rep["new_sessions"] = items
