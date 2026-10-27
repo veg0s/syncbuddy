@@ -55,8 +55,10 @@ def _sync_env():
     return e
 
 
-STATE_FILE = Path(__file__).resolve().parent / "state.json"
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+# 用 APP_DIR 而不是 __file__ 的目录：打包后 __file__ 在 _internal/ 里，
+# 日志和状态写进去用户找不到，程序更新时还会被覆盖
+STATE_FILE = paths.APP_DIR / "state.json"
+LOG_DIR = paths.APP_DIR / "logs"
 
 
 def log(msg):
@@ -271,8 +273,20 @@ class SyncBuddy:
 
     # ─────────────────────── 导出 / 导入 ───────────────────────
 
+    def _runner(self, name):
+        """
+        执行 wbsync 脚本的命令前缀。
+
+        源码运行时用配置里的 python；打包成 exe 之后 sys.executable 就是
+        exe 自己，得走 `--run` 分发 —— 那时磁盘上根本没有 python.exe。
+        """
+        script = _script(name)
+        if getattr(sys, "frozen", False):
+            return [sys.executable, "--run", str(script)]
+        return [self.python, str(script)]
+
     def export(self, layer="all", only=None):
-        cmd = [self.python, str(_script("export.py")), "--layer", layer]
+        cmd = self._runner("export.py") + ["--layer", layer]
         if only:
             cmd += ["--only", ",".join(sorted(only))]
         r = _proc.run(cmd, cwd=str(self.repo), capture_output=True, text=True,
@@ -284,7 +298,7 @@ class SyncBuddy:
 
     def plan(self):
         """待上传清单（本机相对 data/ 变了什么），给面板的「待上传」用。"""
-        r = _proc.run([self.python, str(_script("export.py")), "--plan"],
+        r = _proc.run(self._runner("export.py") + ["--plan"],
                       cwd=str(self.repo), capture_output=True, text=True,
                       encoding="utf-8", errors="replace", timeout=300,
                       env=_sync_env())
@@ -293,7 +307,7 @@ class SyncBuddy:
         return json.loads(r.stdout)
 
     def do_import(self, layer="all", exclude_ids=None, only=None):
-        cmd = [self.python, str(_script("import.py")), "--apply", "--layer", layer]
+        cmd = self._runner("import.py") + ["--apply", "--layer", layer]
         if exclude_ids:
             cmd += ["--exclude", ",".join(sorted(exclude_ids))]
         if only:

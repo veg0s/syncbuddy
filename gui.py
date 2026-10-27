@@ -512,7 +512,7 @@ class SettingsDialog(QDialog):
         self.accept()          # 交给主程序去弹向导
 
     def _open_log(self):
-        d = Path(__file__).resolve().parent / "logs"
+        d = paths.APP_DIR / "logs"
         d.mkdir(exist_ok=True)
         try:
             _proc.popen(["explorer", str(d)])

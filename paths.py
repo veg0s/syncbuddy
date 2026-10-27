@@ -22,9 +22,14 @@ syncbuddy / paths.py — 路径解析的唯一来源
 """
 
 import os
+import sys
 from pathlib import Path
 
+# 源码运行时 __file__ 就在项目目录；打包成 exe 之后它指向 _internal/，
+# 真正的程序目录得看 sys.executable。两者分开，仓库定位才不会找错地方。
 HERE = Path(__file__).resolve().parent
+APP_DIR = (Path(sys.executable).resolve().parent
+           if getattr(sys, "frozen", False) else HERE)
 TOOLS = HERE / "wbsync"
 
 _REPO_NAMES = ("wb-sync", "workwork", "workwork-sync", "repo")
@@ -40,10 +45,12 @@ def repo_root() -> Path:
         # 环境变量显式指定就采信，哪怕路径暂时不存在（报错时能看出配错了）
         return Path(env).expanduser().resolve()
 
-    for name in _REPO_NAMES:
-        cand = HERE.parent / name
-        if _looks_like_repo(cand):
-            return cand.resolve()
+    # 先看程序目录里面（绿色版把仓库放在 exe 旁边），再看上一级
+    for base in (APP_DIR, APP_DIR.parent):
+        for name in _REPO_NAMES:
+            cand = base / name
+            if _looks_like_repo(cand):
+                return cand.resolve()
 
     for name in _REPO_NAMES:
         cand = HERE / name

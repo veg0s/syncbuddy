@@ -1,0 +1,78 @@
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Copyright (c) 2026 Veg0s
+#
+name: Build Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller "PySide6==6.12.0"
+
+      - name: 打包
+        run: python -m PyInstaller syncbuddy.spec --noconfirm --clean
+
+      - name: 校验产物
+        shell: pwsh
+        run: |
+          if (-not (Test-Path 'dist/SyncBuddy/SyncBuddy.exe')) {
+            throw 'exe 没生成'
+          }
+          $ver = (Get-Content VERSION -Raw).Trim()
+          Write-Host "版本 $ver"
+          # 打包版要能正常执行同步引擎，否则打出来是废的
+          $env:WB_SYNC_REPO = (Get-Location).Path
+          & ./dist/SyncBuddy/SyncBuddy.exe --run _internal/wbsync/test_remap.py
+          if ($LASTEXITCODE -ne 0) { throw "test_remap 失败：$LASTEXITCODE" }
+
+      - name: 压缩
+        shell: pwsh
+        run: |
+          $ver = (Get-Content VERSION -Raw).Trim()
+          $name = "SyncBuddy-v$ver-win64.zip"
+          Compress-Archive -Path dist/SyncBuddy/* -DestinationPath $name
+          Write-Host "产物：$name（$([math]::Round((Get-Item $name).Length/1MB,1)) MB）"
+          "ZIP_NAME=$name" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: SyncBuddy-win64
+          path: ${{ env.ZIP_NAME }}
+          retention-days: 30
+
+      - name: 发布到 Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ZIP_NAME }}
+          generate_release_notes: false
+          append_body: |
+            ## 下载
+
+            解压后双击 `SyncBuddy.exe`。首次运行会弹配置向导。
+
+            需要单独准备一个私有 git 仓库存放数据，位置：与 `SyncBuddy.exe`
+            同级的 `wb-sync/` 目录，或者用环境变量 `WB_SYNC_REPO` 指定。

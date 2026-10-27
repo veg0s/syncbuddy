@@ -24,6 +24,7 @@ SyncBuddy — 启动器 + 同步壳
 """
 
 import json
+import os
 import _proc
 import sys
 import time
@@ -47,6 +48,7 @@ from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QMessageBox
 
 import core
+import paths
 import gui
 import watch
 
@@ -521,7 +523,41 @@ def _install_crash_log():
     sys.excepthook = hook
 
 
+def _run_script(argv):
+    """
+    打包成 exe 之后没有独立的 python 解释器，同步引擎（wbsync/*.py）
+    靠这个入口在子进程里跑：
+
+        SyncBuddy.exe --run <脚本路径> [脚本自己的参数...]
+
+    run_path 执行的是磁盘上的明文脚本，所以 wbsync/ 必须作为数据文件
+    一起打包，运行时和 exe 同目录。
+    """
+    import runpy
+
+    # windowed exe 的 sys.stdout 可能是 None，也可能是 GBK 编码的包装器。
+    # 后者一写 ✔ 这类字符就 UnicodeEncodeError，所以统一压成 UTF-8。
+    for _name in ("stdout", "stderr"):
+        _stream = getattr(sys, _name, None)
+        if _stream is None:
+            setattr(sys, _name, open(os.devnull, "w", encoding="utf-8"))
+        else:
+            try:
+                _stream.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+    script = argv[2]
+    sys.argv = [script] + argv[3:]
+    runpy.run_path(script, run_name="__main__")
+
+
 def main():
+    # 子进程身份：转发给 wbsync 脚本，别去初始化托盘
+    if len(sys.argv) >= 3 and sys.argv[1] == "--run":
+        _run_script(sys.argv)
+        return 0
+
     _setup_io()
     _install_crash_log()
     print(f"\n=== SyncBuddy 启动 {time.strftime('%Y-%m-%d %H:%M:%S')} ===")
@@ -533,7 +569,7 @@ def main():
     # 单实例：双击两次会出现两套 2 秒轮询，弹窗频率翻倍
     # 冲突时静默退出，弹窗反而会让用户以为卡住了
     from PySide6.QtCore import QLockFile
-    lock = QLockFile(str(HERE / ".syncbuddy.lock"))
+    lock = QLockFile(str(paths.APP_DIR / ".syncbuddy.lock"))
     lock.setStaleLockTime(30000)
     if not lock.tryLock(200):
         core.log("已有实例在运行，本次启动退出")
