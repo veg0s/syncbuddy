@@ -288,3 +288,16 @@ git 不知道往哪推。本机既有仓库早就设过 upstream，所以一直�
 同时把 `fetch` 也改了：远程仓库一个 commit 都没有时 `fetch origin main` 会报
 `couldn't find remote ref main`，这在首次使用是正常状态，不该当故障。
 `git_state` 返回 `no_upstream` 时拉取直接跳过，别去 merge 一个不存在的远程分支。
+
+### 合并无关历史被 git 拒绝
+
+**现象**：`⚠ 上传异常：合并失败：fatal: refusing to merge unrelated histories`
+
+**原因**：解压版第一次用时，本地 `wb-sync` 是现 `git init` 出来的；远程那边可能有
+别的提交（建仓库时勾了 README，或者之前推过）。两个历史没有共同祖先，git 默认
+拒绝合并。
+
+**解法**：`merge_remote()` 加 `--allow-unrelated-histories`。配合原有的 `-X theirs`
+（冲突取远程），合并完再重新 export 把本机数据补回去。
+
+本地 bare 仓库复现验证过：不加参数报同样的错，加了之后 `Auto-merging` 正常完成。

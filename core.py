@@ -351,8 +351,13 @@ class SyncBuddy:
         """
         分叉合并：冲突一律取远程，随后由合并式 export 把本机数据补回来。
         这样远程独有的会话不会丢，本机较新的内容也会被重导覆盖。
+
+        --allow-unrelated-histories 是必须的：解压版第一次用时，本地仓库是
+        现 git init 出来的，和远端已有的提交没有共同祖先。不加这个参数
+        git 会直接拒绝，报 "refusing to merge unrelated histories"。
         """
-        r = self._git("merge", "origin/main", "--no-commit", "--no-ff", "-X", "theirs",
+        r = self._git("merge", "origin/main", "--no-commit", "--no-ff",
+                      "--allow-unrelated-histories", "-X", "theirs",
                       timeout=300)
         if r.returncode != 0:
             self._git("merge", "--abort")
