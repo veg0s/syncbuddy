@@ -43,8 +43,9 @@ jobs:
           $ver = (Get-Content VERSION -Raw).Trim()
           Write-Host "版本 $ver"
           # 打包版要能正常执行同步引擎，否则打出来是废的
+          $exe = (Resolve-Path 'dist/SyncBuddy/SyncBuddy.exe').Path
           $env:WB_SYNC_REPO = (Get-Location).Path
-          & ./dist/SyncBuddy/SyncBuddy.exe --run _internal/wbsync/test_remap.py
+          & $exe --run "$(Split-Path $exe)\_internal\wbsync\test_remap.py"
           if ($LASTEXITCODE -ne 0) { throw "test_remap 失败：$LASTEXITCODE" }
 
       - name: 压缩

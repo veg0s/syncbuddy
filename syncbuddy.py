@@ -547,9 +547,15 @@ def _run_script(argv):
             except Exception:
                 pass
 
-    script = argv[2]
-    sys.argv = [script] + argv[3:]
-    runpy.run_path(script, run_name="__main__")
+    # 相对路径按 exe 所在目录解析。workflow 或别的脚本在仓库根调用时，
+    # cwd 不是程序目录，直接交给 runpy 会找错地方。
+    from pathlib import Path as _P
+    _script_path = _P(argv[2])
+    if not _script_path.is_absolute():
+        _script_path = paths.APP_DIR / _script_path
+
+    sys.argv = [str(_script_path)] + argv[3:]
+    runpy.run_path(str(_script_path), run_name="__main__")
 
 
 def main():

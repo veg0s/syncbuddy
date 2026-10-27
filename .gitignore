@@ -28,7 +28,5 @@ desktop.ini
 .DS_Store
 
 # 打包产物
-/build/
-/dist/
-/build_new/
-/dist_new/
+/build*/
+/dist*/
