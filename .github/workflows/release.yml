@@ -35,18 +35,9 @@ jobs:
         run: python -m PyInstaller syncbuddy.spec --noconfirm --clean
 
       - name: 校验产物
-        shell: pwsh
-        run: |
-          if (-not (Test-Path 'dist/SyncBuddy/SyncBuddy.exe')) {
-            throw 'exe 没生成'
-          }
-          $ver = (Get-Content VERSION -Raw).Trim()
-          Write-Host "版本 $ver"
-          # 打包版要能正常执行同步引擎，否则打出来是废的
-          $exe = (Resolve-Path 'dist/SyncBuddy/SyncBuddy.exe').Path
-          $env:WB_SYNC_REPO = (Get-Location).Path
-          & $exe --run "$(Split-Path $exe)\_internal\wbsync\test_remap.py"
-          if ($LASTEXITCODE -ne 0) { throw "test_remap 失败：$LASTEXITCODE" }
+        # exe 是 GUI 子系统，shell 的 & 和 cmd /c 都不会等它，拿不到退出码。
+        # 用 Python 的 subprocess 才能真正等到进程结束。
+        run: python tools/verify_build.py
 
       - name: 压缩
         shell: pwsh
