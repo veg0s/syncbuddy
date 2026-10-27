@@ -263,6 +263,15 @@ class SetupWizard(QDialog):
         v.setContentsMargins(0, 6, 0, 0)
         v.setSpacing(10)
 
+        # 数据仓库在哪 —— 解压版用户不知道程序把东西存哪去了
+        repo_exists = self.wb_sync.is_dir()
+        lb_repo = QLabel(
+            "数据仓库：" + str(self.wb_sync) +
+            ("" if repo_exists else "（尚未创建，完成后会自动建目录）"))
+        lb_repo.setWordWrap(True)
+        lb_repo.setStyleSheet(f"color:{MUTED};font-size:11px;")
+        v.addWidget(lb_repo)
+
         # SSH 私钥：由用户自己指定绝对路径，程序不猜
         v.addWidget(self._h2("SSH 私钥 · 访问仓库（可选）"))
         r0 = QHBoxLayout()
@@ -519,6 +528,15 @@ class SetupWizard(QDialog):
 
     def finish(self):
         try:
+            # 解压版第一次运行时数据仓库还不存在（那是用户自己的私有仓库），
+            # 不先建目录，下面写 config.json 会直接 Errno 2。
+            if not self.wb_sync.is_dir():
+                self.wb_sync.mkdir(parents=True, exist_ok=True)
+                if not (self.wb_sync / ".git").exists():
+                    subprocess.run(["git", "init", "-q", "-b", "main"],
+                                   cwd=self.wb_sync, capture_output=True,
+                                   timeout=30, creationflags=0x08000000)
+
             cfg = {}
             if self.cfg_file.is_file():
                 cfg = json.loads(self.cfg_file.read_text(encoding="utf-8"))

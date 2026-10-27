@@ -1,6 +1,6 @@
 # SyncBuddy
 
-当前版本 **v1.0.4**
+当前版本 **v1.0.5**
 
 WorkBuddy 的跨设备同步工具。关掉 WorkBuddy 时把改动推到私有 git 仓库，下次在另一台机器打开前再拉回来。
 
@@ -48,14 +48,35 @@ WorkBuddy 的跨设备同步工具。关掉 WorkBuddy 时把改动推到私有 g
 
 ## 上手
 
-需要 Windows、Python 3.10+、git，以及 [age](https://github.com/FiloSottile/age)。
+### 用打包好的发布版
 
-1. 建一个私有仓库，GitHub、Gitee、GitLab、自建 Gitea 都行。建的时候别勾 README 初始化，否则第一次推会撞上。
-2. 克隆到 `syncbuddy` 旁边的 `wb-sync/`。
-3. 双击 `SyncBuddy.vbs`。
-4. 首次运行会弹配置向导，填三项：SSH 私钥（可留空）、age 私钥、远程仓库地址。
+去 [Releases](https://github.com/veg0s/syncbuddy/releases) 下 `SyncBuddy-vX.Y.Z-win64.zip`，
+解压到任意目录，双击 `SyncBuddy.exe`。不用装 Python，也不用装 PySide6。
 
-之后它就在托盘里待着。左键点开看状态，右键是菜单。
+**数据仓库**：首次配置时会自动在同级建一个 `wb-sync/` 目录（已 `git init`，但没有远程）。
+你需要自己给它加个私有仓库地址并推一次：
+
+```bash
+cd wb-sync
+git remote add origin git@github.com:你的账号/你的仓库.git
+```
+
+仓库建在 GitHub、Gitee、GitLab、自建 Gitea 都行，**别勾 README 初始化**，否则第一次推会撞上。
+
+**age 是外部工具**，记忆加密要用，得单独装：
+[age releases](https://github.com/FiloSottile/age/releases)。不想加密记忆的话，
+配置向导里可以只填 SSH 私钥跳过它。
+
+### 从源码跑
+
+需要 Windows、Python 3.10+、git、age。
+
+1. 克隆本仓库
+2. 建一个私有仓库，克隆到 `syncbuddy` 旁边的 `wb-sync/`
+3. 双击 `SyncBuddy.vbs`（或 `SyncBuddy.cmd`）
+4. 首次运行弹配置向导，填三项：SSH 私钥（可留空）、age 私钥、远程仓库地址
+
+两种方式装好之后，它就在托盘里待着。左键点开看状态，右键是菜单。
 
 ## 界面
 
