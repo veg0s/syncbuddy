@@ -944,7 +944,11 @@ class TrayPanel(QWidget):
             shown += 1
 
         if not shown:
-            if not plans.get(self.tab):
+            err = (plans.get(self.tab) or {}).get("error")
+            if err:
+                # 扫描失败要说明白，别让用户对着"正在扫描…"干等
+                hint = f"扫描失败：{str(err)[:90]}\n点托盘图标重试"
+            elif not plans.get(self.tab):
                 hint = "正在扫描…"
             elif self.tab == "upload":
                 hint = "本机没有需要上传的改动"

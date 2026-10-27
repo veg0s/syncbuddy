@@ -93,6 +93,7 @@ class SyncBuddyApp:
         self.splash = None
         self.wb_proc = None
         self._plan_cache = {}
+        self._plan_error = None
         self._plan_ts = 0
         self._plan_worker = None
         self._modal_open = False
@@ -384,7 +385,13 @@ class SyncBuddyApp:
 
     def _compute_plan(self):
         up = self.sb.plan()
-        items, _stat = self.sb.incoming()
+        # 远程预览失败（网络/仓库状态）不该让整个扫描失败 ——
+        # 待上传清单是本机的，跟远程没关系
+        try:
+            items, _stat = self.sb.incoming()
+        except Exception as ex:
+            log(f"  远程预览失败：{ex}")
+            items = []
         down = {
             "total": len(items),
             "categories": {
@@ -398,15 +405,27 @@ class SyncBuddyApp:
         return {"upload": up, "download": down, "ts": int(time.time())}
 
     def _on_plan_done(self, res):
-        if isinstance(res, dict) and res.get("upload"):
+        if not isinstance(res, dict):
+            return
+        if res.get("error"):
+            # 扫描失败必须让用户看见。之前这里直接跳过，缓存永远是空，
+            # 界面就无限停在「正在扫描…」，看起来像卡死
+            self._plan_error = str(res["error"])
+            log(f"⚠ 预扫描失败：{self._plan_error}")
+            self._plan_cache = {
+                "upload": {"total": 0, "categories": {}, "error": self._plan_error},
+                "download": {"total": 0, "categories": {}},
+            }
+        elif res.get("upload"):
+            self._plan_error = None
             self._plan_cache = {"upload": res["upload"],
                                 "download": res.get("download") or {}}
-            self._plan_ts = res.get("ts") or int(time.time())
-            try:
-                if self.panel.isVisible():
-                    self.panel.refresh(full=True)
-            except Exception:
-                pass
+        self._plan_ts = res.get("ts") or int(time.time())
+        try:
+            if self.panel.isVisible():
+                self.panel.refresh(full=True)
+        except Exception:
+            pass
 
     # ────────────── 面板动作 ──────────────
 
