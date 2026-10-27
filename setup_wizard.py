@@ -366,6 +366,14 @@ class SetupWizard(QDialog):
             self.ed_key.setText(f)
 
     def _current_remote(self):
+        # config.json 里存过就直接用 —— 那是用户上次填的，比读 git 可靠
+        try:
+            cfg = json.loads(self.cfg_file.read_text(encoding="utf-8"))
+            saved = (cfg.get("remote") or "").strip()
+            if saved:
+                return saved
+        except Exception:
+            pass
         try:
             r = subprocess.run(["git", "remote", "get-url", "origin"],
                                cwd=self.wb_sync, capture_output=True,
@@ -567,14 +575,22 @@ class SetupWizard(QDialog):
             cfg.setdefault("exclude_background_automation", True)
             cfg.setdefault("sync_all_sessions", True)
 
-            self.cfg_file.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
-                                     encoding="utf-8")
-
+            # 远程地址必须先落进 config 再写盘。之前这段在 write_text 后面，
+            # 配置文件里永远没有 remote，重跑向导时输入框是空的。
             remote = self.ed_remote.text().strip()
             if remote:
-                subprocess.run(["git", "remote", "set-url", "origin", remote],
-                               cwd=self.wb_sync, capture_output=True, timeout=20,
-                               creationflags=0x08000000)
+                cfg["remote"] = remote
+                # 刚 git init 的仓库没有 origin，set-url 会直接失败，得用 add
+                r = subprocess.run(["git", "remote", "set-url", "origin", remote],
+                                   cwd=self.wb_sync, capture_output=True, timeout=20,
+                                   creationflags=0x08000000)
+                if r.returncode != 0:
+                    subprocess.run(["git", "remote", "add", "origin", remote],
+                                   cwd=self.wb_sync, capture_output=True, timeout=20,
+                                   creationflags=0x08000000)
+
+            self.cfg_file.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
+                                     encoding="utf-8")
 
             # 用户指定了 SSH 私钥就写进 git 配置；没指定就清掉旧的，回到系统默认
             ssh_key = self.ed_ssh.text().strip()

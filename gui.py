@@ -476,6 +476,15 @@ class SettingsDialog(QDialog):
         root.addLayout(btns)
 
     def _current_remote(self):
+        # 优先读 config.json 的 remote —— 用户在向导里填过就应该显示出来
+        try:
+            import json as _json
+            cfg = _json.loads((paths.WB_SYNC / "config.json").read_text(encoding="utf-8"))
+            saved = (cfg.get("remote") or "").strip()
+            if saved:
+                return saved
+        except Exception:
+            pass
         r = _proc.run(["git", "remote", "get-url", "origin"], cwd=self.repo,
                            capture_output=True, text=True,
                            encoding="utf-8", errors="replace")

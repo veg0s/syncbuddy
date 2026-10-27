@@ -172,7 +172,12 @@ def export_memory(cfg, stats, dry):
     out = DATA / "memory"
     out.mkdir(parents=True, exist_ok=True)
 
-    pubkey = cfg["age_public_key"]
+    # 没配公钥就跳过这一层，别让整个导出崩掉 ——
+    # 大量用户只用 SSH + 会话同步，不碰记忆加密
+    pubkey = (cfg.get("age_public_key") or "").strip()
+    if not pubkey:
+        print("  ! 未配置 age 公钥，跳过记忆同步")
+        return
     age_bin = local.get("age_binary", "age")
     hash_file = out / ".plain-hashes.json"
 
@@ -406,10 +411,16 @@ def export_transcripts(cfg, stats, dry):
                         pass
 
     n_new = n_skip = n_excl = 0
+    n_seen = 0
     total_bytes = 0
     for p in sorted(src_root.rglob("*.jsonl")):
         if p.name.endswith(".file-rollback.ndjson"):
             continue
+        # 首次导出可能上千个文件、好几分钟，隔一段报个数，
+        # 否则用户只看到光标不动，以为卡死了
+        n_seen += 1
+        if n_seen % 200 == 0:
+            log(f"  · 已扫描 {n_seen} 个正文文件")
         if allowed is not None and p.stem not in allowed:
             n_excl += 1
             continue

@@ -488,21 +488,59 @@ class SyncBuddyApp:
         self.app.quit()
 
 
+class _Tee:
+    """同时写多个流。任何一个失败都不影响其它的。"""
+
+    def __init__(self, *streams):
+        self.streams = streams
+
+    def write(self, s):
+        for st in self.streams:
+            try:
+                st.write(s)
+            except Exception:
+                pass
+
+    def flush(self):
+        for st in self.streams:
+            try:
+                st.flush()
+            except Exception:
+                pass
+
+    def isatty(self):
+        return False
+
+
 def _setup_io():
     """
-    pythonw 下 sys.stdout / sys.stderr 都是 None。
-    后果有两个：任何 print 直接抛 AttributeError 把程序带走；
-    未捕获异常的 traceback 也无处可去，等于瞎跑。
+    日志必须落盘，不能靠"有没有控制台"来决定。
 
-    所以一上来就把它们接到文件上。
+    windowed exe 的 sys.stdout 不是 None，是 GBK 编码的包装器。之前按
+    `is None` 判断，结果打包版一个字的日志都没写 —— 出了问题完全没法查，
+    用户只看到"卡住了"。
+
+    现在无条件把文件流接进去：有控制台就两头都写，没有就只写文件。
+    顺带统一成 UTF-8，避免 GBK 下中文和 ✔ 报 UnicodeEncodeError。
     """
-    d = HERE / "logs"
-    d.mkdir(exist_ok=True)
+    d = paths.APP_DIR / "logs"
+    d.mkdir(parents=True, exist_ok=True)
     stream = open(d / "runtime.log", "a", encoding="utf-8", buffering=1)
-    if sys.stdout is None:
-        sys.stdout = stream
-    if sys.stderr is None:
-        sys.stderr = stream
+
+    targets = []
+    for name in ("stdout", "stderr"):
+        cur = getattr(sys, name, None)
+        if cur is not None:
+            try:
+                cur.reconfigure(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+            targets.append(cur)
+    targets.append(stream)
+
+    tee = _Tee(*targets)
+    sys.stdout = tee
+    sys.stderr = tee
 
 
 def _install_crash_log():

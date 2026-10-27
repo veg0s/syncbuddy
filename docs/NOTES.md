@@ -220,3 +220,58 @@ PowerShell 的 `Remove-Item` 和 Python 的 `shutil.rmtree` 在某些环境里�
 
 **为什么代码和数据分开放**：`wb-sync/` 是用户的私有数据，不进这个仓库；工具通过
 `WB_SYNC_REPO` 或者目录约定找到它。这样开源的是工具，不会连人的会话记录一起公开。
+
+## 发布之后才暴露的问题
+
+源码模式下测不出来，打包给别人用才发现的。记下来免得下次再犯。
+
+### 主程序日志一个字都没写
+
+`_setup_io()` 里原来是 `if sys.stdout is None: sys.stdout = stream`。
+以为 windowed exe 的 stdout 是 None，其实是个 GBK 包装器，条件永远不成立。
+
+结果是打包版跑起来日志干干净净——用户报"首次扫描很久，看着像卡住"，
+我这边一条日志都拿不到，只能靠猜。
+
+修法：不看它是不是 None，无条件把文件流接进去。用 `_Tee` 同时写控制台和文件：
+
+```python
+class _Tee:
+    def __init__(self, *streams): self.streams = streams
+    def write(self, s):
+        for st in self.streams:
+            try: st.write(s)
+            except Exception: pass
+```
+
+顺带发现 `--run` 分支也有同样的假设，一起改了。
+
+### 向导里填的远程地址存不下来
+
+两个独立的错叠在一起：
+
+1. `git remote set-url` 对**刚 git init 的仓库**会失败——那时没有 `origin`，
+   得用 `remote add`。代码里只写了 set-url，报错又被 `capture_output=True` 吞了。
+2. `write_text` 写 config 在前，处理 remote 在后。就算 set-url 成功，
+   `config.json` 里也不会有 remote 字段。
+
+表现就是：导完向导，设置里看不到远程仓库，重跑向导输入框还是空的。
+
+修法：先写 `cfg["remote"]`，`set-url` 失败再 `add`，最后才落盘。
+
+### 没有 age 公钥直接 KeyError
+
+`export_memory()` 第一行 `pubkey = cfg["age_public_key"]`。
+用户没配 age 密钥对（很多人只用会话同步），导出直接崩在 `KeyError` 上，
+而且报的是脚本内部行号，看着像代码 bug 而不是配置缺失。
+
+修法：`cfg.get("age_public_key")` 判空，没配就跳过这一层并打印一行说明。
+一个可选功能的缺失，不该让整个同步流程挂掉。
+
+### 一点体会
+
+这轮三个 bug 有个共同点：都是**在源码模式下永远碰不到的分支**——
+windowed 的 stdout、刚 init 的空仓库、没配的 optional 字段。
+
+所以验证不能只在开发机上跑一遍源码。至少要做一次"干净环境"的端到端：
+解压到空目录、按文档从头配一遍、看着日志走完全程。
