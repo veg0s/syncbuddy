@@ -168,6 +168,11 @@ tools/            asar_probe，探 WorkBuddy 主程序内部
 icons/            SVG 图标
 ```
 
+## 开发笔记
+
+打包怎么配、Qt 的哪些名字不能当属性名、CI 上踩过的编码坑，都记在 [docs/NOTES.md](docs/NOTES.md) 里了。
+要改代码之前先翻一遍，能省不少时间。
+
 ## 协议
 
 Mozilla Public License 2.0，全文见 [LICENSE](LICENSE)。版权归 Veg0s。
