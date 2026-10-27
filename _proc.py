@@ -23,11 +23,35 @@ syncbuddy / _proc.py — 子进程调用的统一出口
 所以：所有 subprocess 调用一律走这里，不要直接调 subprocess。
 """
 
+import atexit
+import os
 import subprocess
 import sys
 
 # Windows 专用常量；其它平台为 0，传进去也无害
 CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+
+def kill_tree():
+    """
+    退出时清掉整棵进程树。
+
+    后台线程里跑着 git fetch（180s 超时）/ git push（300s 超时）。
+    用户点退出时如果正好卡在网络等待，Python 主进程走了，git.exe 和它
+    派生出来的 ssh.exe 会留在系统里 —— 表现为「关了程序，任务管理器里
+    还有几个 git 进程」。
+
+    taskkill /T 按父 PID 递归终止，只影响自己这棵树，不会误伤用户在
+    别的窗口里跑的 git。att 退出阶段执行，日志是行缓冲的不会丢。
+    """
+    if sys.platform != "win32":
+        return
+    try:
+        subprocess.run(["taskkill", "/F", "/T", "/PID", str(os.getpid())],
+                       creationflags=CREATE_NO_WINDOW,
+                       capture_output=True, timeout=10)
+    except Exception:
+        pass
 
 
 def run(cmd, **kwargs):

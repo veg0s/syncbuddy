@@ -301,3 +301,17 @@ git 不知道往哪推。本机既有仓库早就设过 upstream，所以一直�
 （冲突取远程），合并完再重新 export 把本机数据补回去。
 
 本地 bare 仓库复现验证过：不加参数报同样的错，加了之后 `Auto-merging` 正常完成。
+
+### 退出程序后 git 进程还在
+
+**现象**：关了 SyncBuddy，任务管理器里还能看到 `git.exe` / `ssh.exe`。
+
+**原因**：`quit()` 只做了停 timer、隐藏托盘、`app.quit()` 三件事，
+没管子进程。后台线程里跑着 `git fetch`（180s 超时）或 `git push`（300s）
+时正好点退出，Python 主进程走了，那些子进程还在等网络。
+
+**解法**：`_proc.kill_tree()` 用 `taskkill /F /T /PID <自身>` 递归终止整棵树，
+在 `atexit` 里注册。`/T` 按父 PID 递归，不会误伤用户在别的窗口跑的 git。
+
+**坑中坑**：这个不能给 `--run` 分支注册。taskkill 会把自己也杀掉，
+退出码变成非 0，CI 里 `verify_build.py` 会误判成 `test_remap` 失败。

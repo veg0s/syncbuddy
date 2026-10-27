@@ -23,6 +23,7 @@ SyncBuddy — 启动器 + 同步壳
     python  syncbuddy.py --no-wait    只做启动前同步，不监听退出
 """
 
+import atexit
 import json
 import os
 import _proc
@@ -601,6 +602,10 @@ def main():
     if len(sys.argv) >= 3 and sys.argv[1] == "--run":
         _run_script(sys.argv)
         return 0
+
+    # 主程序才需要清进程树。--run 分支不能注册 —— taskkill 会把自己也干掉，
+    # 退出码就变成非 0，CI 里的校验会误判成失败。
+    atexit.register(_proc.kill_tree)
 
     _setup_io()
     _install_crash_log()
